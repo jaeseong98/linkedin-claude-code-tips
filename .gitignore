@@ -1,0 +1,22 @@
+# 민감 정보
+.env
+.linkedin_cookies.json
+
+# LinkedIn 수집 원본 데이터 (ToS, 개인정보)
+data/
+
+# 디버그 스크린샷 (LinkedIn 화면 포함)
+debug_*.png
+
+# 로컬 전용
+change_log.txt
+.claude/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+*.egg-info/
+dist/
+build/

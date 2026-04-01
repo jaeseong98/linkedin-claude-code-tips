@@ -71,6 +71,15 @@ async def run_daily_scrape():
     print(f"  - Skill 후보: {daily_summary['skill_worthy_tips']}개")
     print(f"  - 카테고리: {daily_summary['categories']}")
 
+    # 5. 마켓플레이스 레포에 자동 publish
+    print("\n[*] 마켓플레이스 publish 중...")
+    from scraper.publisher import publish_skills
+    pub_result = publish_skills(today)
+    if pub_result["error"]:
+        print(f"  [!] publish 실패: {pub_result['error']}")
+    elif pub_result["pushed"]:
+        print(f"  [✓] {pub_result['copied']}개 Skills → claude-code-skills 레포 push 완료")
+
 
 def job():
     asyncio.run(run_daily_scrape())

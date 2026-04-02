@@ -36,7 +36,8 @@ $Settings = New-ScheduledTaskSettingsSet `
     -ExecutionTimeLimit (New-TimeSpan -Hours 2) `
     -RestartCount 2 `
     -RestartInterval (New-TimeSpan -Minutes 10) `
-    -StartWhenAvailable
+    -StartWhenAvailable `
+    -WakeToRun
 
 $Principal = New-ScheduledTaskPrincipal `
     -UserId $env:USERNAME `

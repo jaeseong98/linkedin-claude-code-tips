@@ -94,7 +94,13 @@ async def run_daily_scrape():
     print(f"  - Skill 후보: {daily_summary['skill_worthy_tips']}개")
     print(f"  - 카테고리: {daily_summary['categories']}")
 
-    # 5. 마켓플레이스 레포에 자동 publish
+    # 5. Skill 리포트 생성
+    print("\n[*] Skill 리포트 생성 중...")
+    from scraper.reporter import generate_report
+    report_path = generate_report(today, analyzed_posts)
+    print(f"  [OK] {report_path}")
+
+    # 6. 마켓플레이스 레포에 자동 publish
     print("\n[*] 마켓플레이스 publish 중...")
     from scraper.publisher import publish_skills
     pub_result = publish_skills(today)

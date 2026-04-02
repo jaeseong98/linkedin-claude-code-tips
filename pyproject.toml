@@ -9,7 +9,6 @@ dependencies = [
     "claude-agent-sdk",
     "python-dotenv",
     "schedule",
-    "aiofiles",
 ]
 
 [project.scripts]

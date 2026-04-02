@@ -25,7 +25,7 @@ def generate_report(date: str, posts: list[dict]) -> Path:
         lines.append("")
         for tip in by_cat[cat]:
             title = tip.get("title", "")
-            desc = tip.get("description", "")
+            desc = tip.get("description", "") or tip.get("content", "")
             template = tip.get("skill_template", "N/A")
             lines.extend([
                 f"### {title}",

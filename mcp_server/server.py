@@ -36,16 +36,17 @@ def get_latest_tips(limit: int = 10) -> str:
 
     data = load_day_data(dates[0])
     tips = []
-    for post in data["posts"]:
-        for tip in post["analysis"].get("tips", []):
+    for post in data.get("posts", []):
+        analysis = post.get("analysis", {})
+        for tip in analysis.get("tips", []):
             tips.append({
-                "tip_id": tip["tip_id"],
-                "category": tip["category"],
-                "title": tip["title"],
-                "content": tip["content"],
+                "tip_id": tip.get("tip_id", ""),
+                "category": tip.get("category", "General"),
+                "title": tip.get("title", ""),
+                "content": tip.get("content", ""),
                 "skill_worthy": tip.get("skill_worthy", False),
-                "author": post["author"]["name"],
-                "post_url": post["url"]
+                "author": post.get("author", {}).get("name", "Unknown"),
+                "post_url": post.get("url", "")
             })
 
     tips = tips[:limit]
@@ -70,19 +71,20 @@ def get_tips_by_date(date: str) -> str:
         available = get_all_dates()
         return f"{date} 데이터 없음. 사용 가능한 날짜: {', '.join(available[:5])}"
 
-    summary = data["daily_summary"]
+    summary = data.get("daily_summary", {})
     result = f"## {date} 일별 요약\n\n"
-    result += f"- 수집: {summary['total_posts_scraped']}개 / 관련: {summary['relevant_posts']}개\n"
-    result += f"- 팁: {summary['tips_extracted']}개 / Skill 후보: {summary['skill_worthy_tips']}개\n"
-    result += f"- 카테고리: {summary['categories']}\n\n"
+    result += f"- 수집: {summary.get('total_posts_scraped', 0)}개 / 관련: {summary.get('relevant_posts', 0)}개\n"
+    result += f"- 팁: {summary.get('tips_extracted', 0)}개 / Skill 후보: {summary.get('skill_worthy_tips', 0)}개\n"
+    result += f"- 카테고리: {summary.get('categories', [])}\n\n"
     result += "---\n\n"
 
-    for post in data["posts"]:
-        if not post["analysis"]["is_relevant"]:
+    for post in data.get("posts", []):
+        analysis = post.get("analysis", {})
+        if not analysis.get("is_relevant", False):
             continue
-        for tip in post["analysis"]["tips"]:
-            result += f"### [{tip['category']}] {tip['title']}\n"
-            result += f"{tip['content']}\n\n"
+        for tip in analysis.get("tips", []):
+            result += f"### [{tip.get('category', 'General')}] {tip.get('title', '')}\n"
+            result += f"{tip.get('content', '')}\n\n"
 
     return result
 
@@ -101,14 +103,15 @@ def get_tips_by_category(category: str, days: int = 7) -> str:
         data = load_day_data(date)
         if not data:
             continue
-        for post in data["posts"]:
-            for tip in post["analysis"]["tips"]:
-                if tip["category"].lower() == category.lower():
+        for post in data.get("posts", []):
+            analysis = post.get("analysis", {})
+            for tip in analysis.get("tips", []):
+                if tip.get("category", "").lower() == category.lower():
                     found.append({
                         "date": date,
                         "tip": tip,
-                        "author": post["author"]["name"],
-                        "url": post["url"]
+                        "author": post.get("author", {}).get("name", "Unknown"),
+                        "url": post.get("url", "")
                     })
 
     if not found:
@@ -134,13 +137,14 @@ def search_tips(keyword: str, days: int = 30) -> str:
         data = load_day_data(date)
         if not data:
             continue
-        for post in data["posts"]:
-            for tip in post["analysis"]["tips"]:
+        for post in data.get("posts", []):
+            analysis = post.get("analysis", {})
+            for tip in analysis.get("tips", []):
                 if kw in tip.get("title", "").lower() or kw in tip.get("content", "").lower():
                     found.append({
                         "date": date,
                         "tip": tip,
-                        "author": post["author"]["name"]
+                        "author": post.get("author", {}).get("name", "Unknown")
                     })
 
     if not found:
@@ -165,9 +169,10 @@ def generate_skill(tip_id: str) -> str:
         data = load_day_data(date)
         if not data:
             continue
-        for post in data["posts"]:
-            for tip in post["analysis"]["tips"]:
-                if tip["tip_id"] == tip_id:
+        for post in data.get("posts", []):
+            analysis = post.get("analysis", {})
+            for tip in analysis.get("tips", []):
+                if tip.get("tip_id") == tip_id:
                     target_tip = tip
                     break
             if target_tip:
@@ -179,11 +184,11 @@ def generate_skill(tip_id: str) -> str:
         return f"tip_id '{tip_id}'를 찾을 수 없습니다."
 
     if not target_tip.get("skill_worthy"):
-        return f"이 팁은 Skill 생성 대상이 아닙니다: {target_tip['title']}"
+        return f"이 팁은 Skill 생성 대상이 아닙니다: {target_tip.get('title', '')}"
 
-    template = target_tip.get("skill_template", target_tip["content"])
-    category = target_tip["category"].lower()
-    title_slug = target_tip["title"].lower().replace(" ", "-")[:30]
+    template = target_tip.get("skill_template", target_tip.get("content", ""))
+    category = target_tip.get("category", "general").lower()
+    title_slug = target_tip.get("title", "untitled").lower().replace(" ", "-")[:30]
     skill_name = f"{category}-{title_slug}"
 
     SKILLS_DIR.mkdir(exist_ok=True)
@@ -191,7 +196,7 @@ def generate_skill(tip_id: str) -> str:
 
     skill_content = f"""---
 name: {skill_name}
-description: {target_tip['title']} (LinkedIn에서 수집된 Claude Code 팁)
+description: {target_tip.get('title', '')} (LinkedIn에서 수집된 Claude Code 팁)
 ---
 
 {template}
@@ -212,8 +217,8 @@ def list_available_dates() -> str:
     for date in dates:
         data = load_day_data(date)
         if data:
-            s = data["daily_summary"]
-            result += f"- {date}: 팁 {s['tips_extracted']}개 / Skill 후보 {s['skill_worthy_tips']}개\n"
+            s = data.get("daily_summary", {})
+            result += f"- {date}: 팁 {s.get('tips_extracted', 0)}개 / Skill 후보 {s.get('skill_worthy_tips', 0)}개\n"
 
     return result
 

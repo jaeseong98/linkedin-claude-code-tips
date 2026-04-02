@@ -34,6 +34,28 @@ def _run_git(cmd: list[str], cwd: Path) -> tuple[int, str]:
     return result.returncode, result.stdout + result.stderr
 
 
+def _retry_unpushed(marketplace_dir: Path) -> None:
+    """Detect commits that were committed but never pushed, and retry push."""
+    code, out = _run_git(
+        ["git", "log", "origin/master..HEAD", "--oneline"], marketplace_dir
+    )
+    if code != 0:
+        print(f"  [!] unpushed 확인 실패: {out}")
+        return
+
+    unpushed = out.strip()
+    if not unpushed:
+        return
+
+    count = len(unpushed.splitlines())
+    print(f"  [*] 미푸시 커밋 {count}개 발견, push 재시도...")
+    code, out = _run_git(["git", "push"], marketplace_dir)
+    if code != 0:
+        print(f"  [!] 미푸시 push 재시도 실패: {out}")
+    else:
+        print(f"  [OK] 미푸시 커밋 {count}개 push 완료")
+
+
 def publish_skills(date: str) -> dict:
     """
     generated_skills/{date}/ 의 .md 파일을 마켓플레이스 레포로 복사 후 push.
@@ -55,6 +77,9 @@ def publish_skills(date: str) -> dict:
     if not marketplace_dir.exists():
         result["error"] = f"마켓플레이스 레포 없음: {marketplace_dir}"
         return result
+
+    # 이전 실행에서 commit 성공 / push 실패로 남은 미푸시 커밋 복구
+    _retry_unpushed(marketplace_dir)
 
     # 파일 복사
     for skill_file in skills_src.glob("*.md"):

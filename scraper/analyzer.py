@@ -1,6 +1,7 @@
 """Claude Agent SDK로 게시글에서 팁 추출 및 분류 (API 키 불필요, Claude Code 인증 사용)"""
 
 import json
+import re
 import uuid
 
 from claude_agent_sdk import ClaudeAgentOptions, ResultMessage, query
@@ -49,18 +50,11 @@ async def analyze_post(post: dict) -> dict:
             if isinstance(message, ResultMessage):
                 result_text = message.result
 
-        # JSON 파싱 (마크다운 코드블록 제거)
+        # JSON 파싱 (마크다운 코드블록 및 다양한 형태 처리)
         raw = result_text.strip()
-        if "```" in raw:
-            parts = raw.split("```")
-            for part in parts:
-                part = part.strip()
-                if part.startswith("json"):
-                    part = part[4:].strip()
-                if part.startswith("{"):
-                    raw = part
-                    break
-
+        match = re.search(r'\{[\s\S]*\}', raw)
+        if match:
+            raw = match.group()
         analysis = json.loads(raw)
 
         # tip_id 보장

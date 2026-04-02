@@ -3,6 +3,7 @@
 import asyncio
 import json
 import os
+import urllib.parse
 from pathlib import Path
 from typing import Generator
 
@@ -22,12 +23,12 @@ class LinkedInScraper:
 
     async def _save_cookies(self, context) -> None:
         cookies = await context.cookies()
-        COOKIES_PATH.write_text(json.dumps(cookies, ensure_ascii=False, indent=2))
+        COOKIES_PATH.write_text(json.dumps(cookies, ensure_ascii=False, indent=2), encoding='utf-8')
 
     async def _load_cookies(self, context) -> bool:
         if not COOKIES_PATH.exists():
             return False
-        cookies = json.loads(COOKIES_PATH.read_text())
+        cookies = json.loads(COOKIES_PATH.read_text(encoding='utf-8'))
         await context.add_cookies(cookies)
         return True
 
@@ -203,50 +204,51 @@ class LinkedInScraper:
                 headless=False,
                 args=["--disable-blink-features=AutomationControlled"]
             )
-            context = await browser.new_context(
-                viewport={"width": 1280, "height": 800},
-                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-            )
-            page = await context.new_page()
-
-            # 쿠키 복원 시도
-            cookie_loaded = await self._load_cookies(context)
-            logged_in = cookie_loaded and await self._is_logged_in(page)
-
-            if not logged_in:
-                await self._login(page)
-                await self._save_cookies(context)
-
-            # 검색 실행
-            print(f"[*] 검색 중: '{keyword}'")
-            encoded = keyword.replace(" ", "%20")
-            url = f"https://www.linkedin.com/search/results/content/?keywords={encoded}&sortBy=date_posted"
-            await page.goto(url, wait_until="load", timeout=30000)
-            # LinkedIn React SPA 렌더링 대기 - article 또는 li 등장할 때까지
             try:
-                await page.wait_for_selector(
-                    "article, li[class], [data-testid]:not([data-testid='toasts-title'])",
-                    timeout=15000
+                context = await browser.new_context(
+                    viewport={"width": 1280, "height": 800},
+                    user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
                 )
-            except Exception:
-                pass
-            await asyncio.sleep(3)
+                page = await context.new_page()
 
-            # 스크린샷 (디버그용)
-            screenshot_path = str(Path(__file__).parent.parent / f"debug_{keyword[:10]}.png")
-            await page.screenshot(path=screenshot_path)
-            print(f"    스크린샷 저장: {screenshot_path}")
+                # 쿠키 복원 시도
+                cookie_loaded = await self._load_cookies(context)
+                logged_in = cookie_loaded and await self._is_logged_in(page)
 
-            # 현재 URL 확인
-            print(f"    현재 URL: {page.url[:80]}")
+                if not logged_in:
+                    await self._login(page)
+                    await self._save_cookies(context)
 
-            posts = await self._scroll_and_collect(page, self.max_posts)
-            print(f"[+] '{keyword}' 결과: {len(posts)}개 수집")
+                # 검색 실행
+                print(f"[*] 검색 중: '{keyword}'")
+                encoded = urllib.parse.quote(keyword)
+                url = f"https://www.linkedin.com/search/results/content/?keywords={encoded}&sortBy=date_posted"
+                await page.goto(url, wait_until="load", timeout=30000)
+                # LinkedIn React SPA 렌더링 대기 - article 또는 li 등장할 때까지
+                try:
+                    await page.wait_for_selector(
+                        "article, li[class], [data-testid]:not([data-testid='toasts-title'])",
+                        timeout=15000
+                    )
+                except Exception:
+                    pass
+                await asyncio.sleep(3)
 
-            await self._save_cookies(context)
-            await browser.close()
+                # 스크린샷 (디버그용)
+                screenshot_path = str(Path(__file__).parent.parent / f"debug_{keyword[:10]}.png")
+                await page.screenshot(path=screenshot_path)
+                print(f"    스크린샷 저장: {screenshot_path}")
 
-            return posts
+                # 현재 URL 확인
+                print(f"    현재 URL: {page.url[:80]}")
+
+                posts = await self._scroll_and_collect(page, self.max_posts)
+                print(f"[+] '{keyword}' 결과: {len(posts)}개 수집")
+
+                await self._save_cookies(context)
+                return posts
+            finally:
+                await browser.close()
 
     async def scrape_all_keywords(self, keywords: list[str]) -> list[dict]:
         """여러 키워드 순차 검색, 중복 제거"""

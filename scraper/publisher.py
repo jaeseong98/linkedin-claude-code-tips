@@ -98,5 +98,5 @@ def publish_skills(date: str) -> dict:
         return result
 
     result["pushed"] = True
-    print(f"  [✓] 마켓플레이스 push 완료 ({result['copied']}개)")
+    print(f"  [OK] marketplace push done ({result['copied']} skills)")
     return result

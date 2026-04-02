@@ -22,6 +22,21 @@ def get_keywords() -> list[str]:
     return [k.strip() for k in raw.split(",") if k.strip()]
 
 
+def load_previous_contents() -> set[str]:
+    """이전 날짜 JSON들에서 content[:100] 키를 모아 중복 판단용 set 생성"""
+    seen = set()
+    for json_file in DATA_DIR.glob("*.json"):
+        try:
+            data = json.loads(json_file.read_text(encoding="utf-8"))
+            for post in data.get("posts", []):
+                content = post.get("content", "")
+                if content:
+                    seen.add(content[:100])
+        except Exception:
+            continue
+    return seen
+
+
 async def run_daily_scrape():
     today = datetime.now().strftime("%Y-%m-%d")
     output_path = DATA_DIR / f"{today}.json"
@@ -41,6 +56,14 @@ async def run_daily_scrape():
     scraper = LinkedInScraper()
     raw_posts = await scraper.scrape_all_keywords(keywords)
     print(f"[+] 총 {len(raw_posts)}개 게시글 수집 완료")
+
+    # 1.5 이전 날짜 데이터와 중복 제거
+    previous_contents = load_previous_contents()
+    before = len(raw_posts)
+    raw_posts = [p for p in raw_posts if p.get("content", "")[:100] not in previous_contents]
+    deduped = before - len(raw_posts)
+    if deduped:
+        print(f"[*] 이전 수집분과 중복 {deduped}개 제거 → {len(raw_posts)}개 신규")
 
     # 2. Claude API 분석
     from scraper.analyzer import analyze_posts_batch, build_daily_summary

@@ -100,14 +100,20 @@ async def run_daily_scrape():
     report_path = generate_report(today, analyzed_posts)
     print(f"  [OK] {report_path}")
 
-    # 6. 추천 Skill 실행 + 결과 저장
+    # 6. Skill 파일 생성
+    print("\n[*] Skill 파일 생성 중...")
+    from scraper.skill_generator import generate_skill_files
+    skill_count = generate_skill_files(today, analyzed_posts)
+    print(f"  [OK] {skill_count}개 Skill 파일 → generated_skills/{today}/")
+
+    # 7. 추천 Skill 실행 + 결과 저장
     print("\n[*] 오늘의 추천 Skill 실행 중...")
     from scraper.skill_executor import recommend_and_execute
     exec_path = await recommend_and_execute(today, analyzed_posts)
     if exec_path:
         print(f"  [OK] 실행 리포트: {exec_path}")
 
-    # 7. 마켓플레이스 레포에 자동 publish
+    # 8. 마켓플레이스 레포에 자동 publish
     print("\n[*] 마켓플레이스 publish 중...")
     from scraper.publisher import publish_skills
     pub_result = publish_skills(today)

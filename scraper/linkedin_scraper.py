@@ -183,9 +183,9 @@ class LinkedInScraper:
                     seen_contents.add(content_key)
                     posts.append(post)
                     newly_added += 1
-                    author = post["author"]["name"]
-                    preview = post["content"][:40].replace('\n', ' ')
-                    print(f"    [수집 {len(posts):2d}] {author} - {preview}...")
+                    author = post["author"]["name"].encode("ascii", "replace").decode()
+                    preview = post["content"][:40].replace('\n', ' ').encode("ascii", "replace").decode()
+                    print(f"    [collect {len(posts):2d}] {author} - {preview}...")
 
             await page.evaluate("window.scrollBy(0, 1500)")
             await asyncio.sleep(2)

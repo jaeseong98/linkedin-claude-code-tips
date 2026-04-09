@@ -1,10 +1,13 @@
 """수집된 Skills 중 프로젝트에 적합한 1-2개를 추천하고 실행한 뒤 결과를 저장"""
 
 import json
+import logging
 from datetime import datetime
 from pathlib import Path
 
 from claude_agent_sdk import ClaudeAgentOptions, ResultMessage, query
+
+log = logging.getLogger("daily_job")
 
 RESULTS_DIR = Path(__file__).parent.parent / "execution_results"
 RESULTS_DIR.mkdir(exist_ok=True)
@@ -51,8 +54,8 @@ async def _query_claude(prompt: str, system: str = "") -> str:
     return result_text
 
 
-async def recommend_skills(posts: list[dict]) -> list[dict]:
-    """skill_worthy 팁 중 프로젝트에 적합한 1-2개 추천"""
+def _extract_skill_candidates(posts: list[dict]) -> list[dict]:
+    """posts에서 skill_worthy 후보 추출"""
     skills = []
     for post in posts:
         analysis = post.get("analysis", {})
@@ -65,9 +68,23 @@ async def recommend_skills(posts: list[dict]) -> list[dict]:
                     "category": tip.get("category", ""),
                     "skill_template": tip.get("skill_template", ""),
                 })
+    return skills
+
+
+async def recommend_skills(posts: list[dict]) -> list[dict]:
+    """skill_worthy 팁 중 프로젝트에 적합한 1-2개 추천"""
+    skills = _extract_skill_candidates(posts)
 
     if not skills:
         return []
+
+    # 후보가 1-2개면 추천 단계 스킵, 바로 전부 반환
+    if len(skills) <= 2:
+        log.info(f"Skill 후보 {len(skills)}개 - 추천 스킵, 전부 실행")
+        return [
+            {"title": s["title"], "reason": "유일한 후보", "skill_template": s["skill_template"]}
+            for s in skills
+        ]
 
     skills_text = "\n".join(
         f"- [{s['category']}] {s['title']}: {s['skill_template'][:100]}..."
@@ -76,15 +93,25 @@ async def recommend_skills(posts: list[dict]) -> list[dict]:
 
     import re
     raw = await _query_claude(RECOMMEND_PROMPT.format(skills_list=skills_text))
+    log.debug(f"추천 응답 원문: {raw[:300]}")
+
     match = re.search(r'\{[\s\S]*\}', raw)
     if not match:
-        return []
+        log.warning("추천 응답에서 JSON 파싱 실패 - 첫 2개 후보 자동 선택")
+        return [
+            {"title": s["title"], "reason": "자동 선택 (파싱 실패)", "skill_template": s["skill_template"]}
+            for s in skills[:2]
+        ]
 
     try:
         data = json.loads(match.group())
         return data.get("recommendations", [])
     except json.JSONDecodeError:
-        return []
+        log.warning("추천 응답 JSON 디코드 실패 - 첫 2개 후보 자동 선택")
+        return [
+            {"title": s["title"], "reason": "자동 선택 (파싱 실패)", "skill_template": s["skill_template"]}
+            for s in skills[:2]
+        ]
 
 
 async def execute_skill(title: str, skill_template: str) -> str:

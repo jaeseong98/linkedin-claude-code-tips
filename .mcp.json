@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "context7": {
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp@latest"],
+      "description": "Context7 - 최신 라이브러리 문서를 컨텍스트에 주입하여 환각 제거"
+    }
+  }
+}

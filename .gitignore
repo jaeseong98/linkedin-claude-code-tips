@@ -11,6 +11,7 @@ debug_*.png
 # 로컬 전용
 change_log.txt
 .claude/
+logs/
 
 # Python
 __pycache__/

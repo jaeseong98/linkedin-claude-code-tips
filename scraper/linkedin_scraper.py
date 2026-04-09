@@ -197,8 +197,23 @@ class LinkedInScraper:
 
         return posts[:max_posts]
 
+    @staticmethod
+    async def _wait_for_network(timeout: int = 120) -> None:
+        """절전 모드 복귀 후 네트워크 연결 대기 (최대 timeout초)"""
+        import urllib.request
+        for i in range(timeout // 5):
+            try:
+                urllib.request.urlopen("https://www.linkedin.com", timeout=10)
+                return
+            except Exception:
+                if i == 0:
+                    print("[*] 네트워크 연결 대기 중...")
+                await asyncio.sleep(5)
+        raise ConnectionError(f"네트워크 연결 실패 ({timeout}초 초과)")
+
     async def search_posts(self, keyword: str) -> list[dict]:
         """키워드로 LinkedIn 게시글 검색 및 수집"""
+        await self._wait_for_network()
         async with async_playwright() as p:
             browser = await p.chromium.launch(
                 headless=False,
